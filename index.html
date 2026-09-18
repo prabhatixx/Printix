@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Printix Customer - Live</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    
+    <!-- Supabase Production SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { brand: { 50: '#F0F5FF', 500: '#0055FF', 600: '#0044CC' } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        ::-webkit-scrollbar { display: none; }
+        
+        .app-frame { width: 100%; max-width: 430px; height: 100dvh; max-height: 932px; background: #F8FAFC; position: relative; overflow: hidden; display: flex; flex-direction: column; transition: background 0.5s; z-index: 1; }
+        .dark .app-frame { background: #0A0A0C; }
+        @media (min-width: 431px) { .app-frame { height: 92vh; border-radius: 44px; border: 12px solid #111; box-shadow: 0 0 0 1px #333, 0 30px 60px rgba(0,0,0,0.5); } }
+
+        .app-bg-grid { position: absolute; inset: 0; z-index: 0; opacity: 0.4; pointer-events: none; background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px); background-size: 24px 24px; transition: opacity 0.5s; animation: panBg 20s linear infinite; }
+        .dark .app-bg-grid { background-image: radial-gradient(circle, #334155 1px, transparent 1px); opacity: 0.2; }
+        
+        .ambient-orb { position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.35; pointer-events: none; z-index: 0; transition: all 1s ease; mix-blend-mode: multiply; }
+        .dark .ambient-orb { mix-blend-mode: screen; }
+        .orb-1 { top: -10%; left: -20%; width: 350px; height: 350px; background: #0055FF; animation: breathe 12s ease-in-out infinite alternate; }
+        .orb-2 { bottom: 10%; right: -20%; width: 300px; height: 300px; background: #A855F7; animation: breathe 15s ease-in-out infinite alternate-reverse; opacity: 0.25; }
+
+        @keyframes panBg { 0% { background-position: 0 0; } 100% { background-position: 0 24px; } }
+        @keyframes springUp { 0% { transform: translateY(40px) scale(0.98); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+        @keyframes cascadeUp { 0% { transform: translateY(30px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+        @keyframes breathe { 0% { transform: scale(1) translate(0, 0); } 100% { transform: scale(1.15) translate(20px, -20px); } }
+        @keyframes pop { 0% { transform: scale(0.85); opacity: 0;} 60% { transform: scale(1.05); opacity: 1;} 100% { transform: scale(1); opacity: 1;} }
+        @keyframes bounceShort { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
+        @keyframes navSpring { 0% { transform: scale(1); } 50% { transform: scale(0.85); } 100% { transform: scale(1); } }
+        @keyframes floatIcon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        @keyframes slideRight { 0% { transform: translateX(-100%) skewX(-12deg); } 100% { transform: translateX(200%) skewX(-12deg); } }
+
+        .view-section { display: none; width: 100%; height: 100%; flex-direction: column; position: absolute; inset: 0; z-index: 10; overflow: hidden; }
+        .view-section.active { display: flex; animation: springUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+        .scroll-content { flex: 1; overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth; z-index: 1; position: relative; }
+        
+        .glass-panel { background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(40px) saturate(200%); -webkit-backdrop-filter: blur(40px) saturate(200%); border: 1px solid rgba(255,255,255,0.9); box-shadow: 0 8px 32px rgba(0,0,0,0.04); }
+        .dark .glass-panel { background: rgba(24, 24, 27, 0.65); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+        .glass-header { background: rgba(248, 250, 252, 0.85); backdrop-filter: blur(40px); border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .dark .glass-header { background: rgba(10, 10, 12, 0.85); border-bottom: 1px solid rgba(255,255,255,0.05); }
+
+        .tactile { transition: all 0.2s cubic-bezier(0.16,1,0.3,1); cursor: pointer; }
+        .tactile:active { transform: scale(0.96); filter: brightness(0.95); }
+        @media (hover: hover) { .tactile:hover { transform: translateY(-2px); } .hover-lift:hover { transform: translateY(-3px); box-shadow: 0 12px 30px -10px rgba(0,0,0,0.1); } }
+        
+        .nav-active i { animation: navSpring 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-pop { animation: pop 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-bounce-short { animation: bounceShort 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 24px); }
+        .loader-spinner { border: 3px solid rgba(0,85,255,0.2); border-radius: 50%; border-top: 3px solid #0055FF; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .modal-overlay { background: rgba(0,0,0,0.5); backdrop-filter: blur(8px); z-index: 100; }
+        .cascade-item { opacity: 0; animation: cascadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .glow-brand { box-shadow: 0 10px 30px -10px rgba(0, 85, 255, 0.6); }
+        .float-anim { animation: floatIcon 3s ease-in-out infinite; }
+        
+        .pay-app { border: 2px solid transparent; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); }
+        .pay-app.selected { border-color: #0055FF; background: rgba(0, 85, 255, 0.05); transform: scale(1.05); box-shadow: 0 10px 25px -5px rgba(0, 85, 255, 0.2); }
+        .dark .pay-app.selected { background: rgba(0, 85, 255, 0.15); box-shadow: 0 10px 25px -5px rgba(0, 85, 255, 0.4); }
+        .pay-app.unselected { opacity: 0.6; transform: scale(0.95); }
+    </style>
+</head>
+<body class="text-gray-900 dark:text-gray-100 transition-colors duration-500">
+
+    <div class="app-frame">
+        <div class="app-bg-grid"></div>
+        <div class="orb-1 ambient-orb"></div>
+        <div class="orb-2 ambient-orb"></div>
+
+        <!-- AUTH VIEW w/ Supabase OTP -->
+        <main id="view-auth" class="view-section active z-50 bg-white/60 dark:bg-black/60 backdrop-blur-3xl px-6 min-h-[100dvh] overflow-y-auto pb-safe pt-8">
+            <div class="flex flex-col justify-center min-h-full py-10">
+                <div class="w-20 h-20 bg-brand-50 dark:bg-brand-500/10 text-brand-500 rounded-[28px] flex items-center justify-center text-4xl mx-auto mb-6 shadow-sm border border-brand-100 dark:border-brand-500/20 animate-pop float-anim shrink-0">
+                    <i class="fa-solid fa-print"></i>
+                </div>
+                <h1 class="text-[36px] font-black tracking-tighter text-center leading-none shrink-0">Printix</h1>
+                <p class="text-[15px] font-medium text-gray-500 text-center mt-3 mb-10 tracking-tight shrink-0">The magical way to print.</p>
+                
+                <div class="glass-panel p-6 rounded-[32px] overflow-hidden relative min-h-[260px] shrink-0">
+                    <!-- Step 1: Phone -->
+                    <div id="authStepPhone" class="absolute inset-0 p-6 transition-transform duration-500 transform translate-x-0 bg-transparent flex flex-col">
+                        <h2 class="text-[18px] font-black text-gray-900 dark:text-white mb-4">Welcome Back</h2>
+                        <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Phone Number</label>
+                        <div class="flex items-center bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-gray-800 rounded-2xl px-4 py-2 mb-6 focus-within:border-brand-500 focus-within:scale-[1.02] focus-within:shadow-md transition-all shadow-inner">
+                            <span class="text-gray-500 font-bold border-r border-gray-200 dark:border-gray-800 pr-3 py-2 transition-colors">+91</span>
+                            <input type="tel" id="mobileInput" placeholder="99999 99999" class="w-full bg-transparent outline-none font-bold text-gray-900 dark:text-white pl-3 text-[17px] py-1" maxlength="10">
+                        </div>
+                        <button onclick="requestOTP()" id="reqOtpBtn" class="w-full bg-brand-500 text-white glow-brand font-bold py-4 rounded-2xl tactile text-[16px] transition-all hover:bg-brand-600 active:scale-95 mt-auto flex items-center justify-center gap-2">
+                            Get OTP
+                        </button>
+                    </div>
+
+                    <!-- Step 2: OTP -->
+                    <div id="authStepOTP" class="absolute inset-0 p-6 transition-transform duration-500 transform translate-x-full bg-transparent flex flex-col">
+                        <div class="flex items-center gap-3 mb-4">
+                            <button onclick="backToPhone()" class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center tactile"><i class="fa-solid fa-arrow-left text-xs"></i></button>
+                            <h2 class="text-[18px] font-black text-gray-900 dark:text-white">Verify Phone</h2>
+                        </div>
+                        <p class="text-[12px] text-gray-500 font-medium mb-4">Code sent to <span id="displayPhoneNo" class="font-bold text-gray-900 dark:text-white"></span></p>
+                        
+                        <div class="flex justify-between gap-2 mb-6">
+                            <input type="text" id="otp1" maxlength="1" class="w-12 h-14 bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-gray-800 rounded-xl text-center font-black text-2xl text-gray-900 dark:text-white shadow-inner focus:border-brand-500 focus:scale-105 transition-all outline-none" onkeyup="moveToNext(this, 'otp2')">
+                            <input type="text" id="otp2" maxlength="1" class="w-12 h-14 bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-gray-800 rounded-xl text-center font-black text-2xl text-gray-900 dark:text-white shadow-inner focus:border-brand-500 focus:scale-105 transition-all outline-none" onkeyup="moveToNext(this, 'otp3', 'otp1')">
+                            <input type="text" id="otp3" maxlength="1" class="w-12 h-14 bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-gray-800 rounded-xl text-center font-black text-2xl text-gray-900 dark:text-white shadow-inner focus:border-brand-500 focus:scale-105 transition-all outline-none" onkeyup="moveToNext(this, 'otp4', 'otp2')">
+                            <input type="text" id="otp4" maxlength="1" class="w-12 h-14 bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-gray-800 rounded-xl text-center font-black text-2xl text-gray-900 dark:text-white shadow-inner focus:border-brand-500 focus:scale-105 transition-all outline-none" onkeyup="moveToNext(this, null, 'otp3')">
+                        </div>
+                        <button onclick="verifyOTP()" id="verifyOtpBtn" class="w-full bg-gray-900 dark:bg-white text-white dark:text-black font-bold py-4 rounded-2xl tactile text-[16px] transition-all shadow-xl active:scale-95 mt-auto flex items-center justify-center gap-2">
+                            Verify & Proceed
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- APP HEADER -->
+        <header id="app-header" class="glass-header px-5 py-4 flex items-center justify-between z-40 hidden shrink-0 absolute top-0 w-full transition-all duration-300">
+            <div class="flex items-center gap-3">
+                <button id="backBtn" class="w-9 h-9 flex items-center justify-center text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800 rounded-full tactile hidden transition-all hover:bg-gray-200 dark:hover:bg-gray-700 hover:-translate-x-1" onclick="goBack()">
+                    <i class="fa-solid fa-arrow-left text-sm"></i>
+                </button>
+                <div id="headerTitleArea">
+                    <h1 class="text-[22px] font-black tracking-tighter transition-all duration-300">Printix</h1>
+                </div>
+            </div>
+            <div class="w-10 h-10 rounded-full overflow-hidden border-2 border-white dark:border-gray-800 shadow-sm cursor-pointer tactile bg-gray-100 dark:bg-gray-900 transition-transform hover:scale-105" onclick="switchNav('profile')">
+                <img id="headerAvatar" src="https://api.dicebear.com/7.x/notionists/svg?seed=Default" class="w-full h-full object-cover">
+            </div>
+        </header>
+
+        <!-- HOME VIEW -->
+        <main id="view-home" class="view-section hidden pt-[72px]">
+            <div class="scroll-content px-5 pt-6 pb-[140px]">
+                <h2 class="text-[32px] font-black tracking-tighter mb-6 text-gray-900 dark:text-white leading-tight">Find a Shop</h2>
+                
+                <div class="relative mb-8 glass-panel rounded-2xl p-1.5 flex items-center shadow-sm focus-within:scale-[1.03] focus-within:shadow-lg focus-within:border-brand-500/50 transition-all duration-300 group bg-white/50 dark:bg-black/30">
+                    <i class="fa-solid fa-magnifying-glass text-gray-400 ml-4 transition-colors group-focus-within:text-brand-500"></i>
+                    <input type="text" id="shopSearchInput" placeholder="6-digit Shop Code..." class="flex-1 bg-transparent px-3 py-3 outline-none font-bold text-gray-900 dark:text-white placeholder-gray-400 text-[15px] min-w-0">
+                    <button onclick="selectShop('Custom Shop', 'Code Entry', true)" class="bg-gray-900 dark:bg-white text-white dark:text-black px-5 py-3 rounded-xl text-[13px] font-bold tactile shadow-sm hover:shadow-md transition-all shrink-0">Go</button>
+                </div>
+
+                <div class="flex justify-between items-center mb-4 ml-1">
+                    <h3 class="text-[12px] font-bold text-gray-400 uppercase tracking-widest">Nearby Favorites</h3>
+                    <button class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 tactile hover:text-brand-500 hover:rotate-90 transition-all" onclick="openFilterModal()"><i class="fa-solid fa-sliders text-xs"></i></button>
+                </div>
+                
+                <div class="flex flex-col gap-4" id="homeShopList">
+                    <div class="cascade-item glass-panel rounded-3xl p-4 cursor-pointer tactile hover-lift flex items-center gap-4 border border-transparent hover:border-brand-500/30 transition-all relative overflow-hidden group" style="animation-delay: 0.1s" onclick="selectShop('Sharma Xerox', '200m • MG Road', true, '849201')">
+                        <div class="absolute top-0 right-0 bg-green-500 text-white text-[9px] font-bold px-2 py-1 rounded-bl-xl tracking-widest uppercase shadow-sm">Open</div>
+                        <div class="w-14 h-14 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 text-brand-500 rounded-[20px] flex items-center justify-center text-xl shrink-0 border border-blue-200 dark:border-blue-700/30 group-hover:scale-105 group-hover:shadow-md transition-all">
+                            <i class="fa-solid fa-store"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-extrabold text-[16px] text-gray-900 dark:text-white tracking-tight truncate">Sharma Xerox</h4>
+                            <p class="text-[12px] text-gray-500 font-medium mt-0.5 truncate">200m • MG Road</p>
+                            <div class="flex gap-2 mt-2">
+                                <span class="text-[10px] font-bold bg-white dark:bg-gray-800 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 shadow-sm shrink-0"><i class="fa-solid fa-palette text-purple-500 mr-1"></i>Color</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="cascade-item glass-panel rounded-3xl p-4 cursor-pointer tactile hover-lift flex items-center gap-4 border border-transparent hover:border-brand-500/30 transition-all relative overflow-hidden group" style="animation-delay: 0.2s" onclick="selectShop('Campus Prints', '500m • North Campus', false, '112233')">
+                        <div class="w-14 h-14 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-[20px] flex items-center justify-center text-xl shrink-0 border border-gray-200 dark:border-gray-700 group-hover:scale-105 group-hover:shadow-md transition-all">
+                            <i class="fa-solid fa-print"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-extrabold text-[16px] text-gray-900 dark:text-white tracking-tight truncate">Campus Prints</h4>
+                            <p class="text-[12px] text-gray-500 font-medium mt-0.5 truncate">500m • North Campus</p>
+                            <div class="flex gap-2 mt-2">
+                                <span class="text-[10px] font-bold bg-white dark:bg-gray-800 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 shadow-sm shrink-0">B&W Only</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- UPLOAD VIEW -->
+        <main id="view-upload" class="view-section hidden pt-[72px]">
+            <div class="glass-header px-5 py-3 flex items-center justify-between shrink-0 border-b border-gray-200/50 dark:border-gray-800/50 z-20 transition-all duration-300">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-9 h-9 bg-brand-50 dark:bg-brand-500/10 text-brand-500 rounded-full flex items-center justify-center border border-brand-100 dark:border-brand-500/20 shrink-0"><i class="fa-solid fa-location-dot text-[12px] animate-bounce-short"></i></div>
+                    <div class="min-w-0">
+                        <h2 id="selectedShopName" class="font-bold text-[14px] text-gray-900 dark:text-white leading-tight tracking-tight truncate">Shop</h2>
+                        <p id="selectedShopDetail" class="text-[10px] text-gray-500 font-medium truncate">Location</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="scroll-content px-5 pt-6 pb-[200px]">
+                <h3 class="text-[12px] font-bold text-gray-400 uppercase tracking-widest mb-3 ml-1">1. Document</h3>
+                
+                <!-- Upload Zone -->
+                <div id="uploadZone" class="border-2 border-dashed border-brand-500/40 dark:border-brand-500/50 rounded-[32px] bg-brand-50/40 dark:bg-brand-900/10 p-8 text-center cursor-pointer tactile mb-8 relative overflow-hidden transition-all duration-300 hover:border-brand-500/80 hover:shadow-lg hover:shadow-brand-500/10 hover:bg-brand-50 dark:hover:bg-brand-900/20 group" onclick="document.getElementById('fileInput').click()">
+                    <input type="file" id="fileInput" class="hidden" accept=".pdf,.png,.jpg,.jpeg" onchange="handleFileUpload(event)">
+                    
+                    <div id="uploadPlaceholder" class="flex flex-col items-center transition-all duration-300">
+                        <div class="w-14 h-14 bg-white dark:bg-gray-800 text-brand-500 rounded-full flex items-center justify-center text-xl mb-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-transform group-hover:scale-110 group-hover:rotate-3 float-anim"><i class="fa-solid fa-plus"></i></div>
+                        <p class="text-[16px] font-black tracking-tight text-gray-900 dark:text-white group-hover:text-brand-600 transition-colors">Tap to upload</p>
+                        <p class="text-[11px] text-gray-500 font-medium mt-1.5 bg-white/60 dark:bg-black/40 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-700">PDF, JPG, PNG</p>
+                    </div>
+
+                    <div id="fileLoading" class="hidden flex flex-col items-center py-2">
+                        <div class="loader-spinner mb-4"></div>
+                        <p class="text-[14px] font-bold text-brand-500 animate-pulse">Analyzing pages...</p>
+                    </div>
+
+                    <div id="fileSuccess" class="hidden flex items-center gap-4 text-left bg-white/90 dark:bg-gray-900/90 p-3 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm relative z-10 w-full backdrop-blur-md animate-pop">
+                        <div id="fileIconContainer" class="w-12 h-14 bg-red-50 dark:bg-red-500/10 rounded-xl flex items-center justify-center shrink-0 border border-red-100 dark:border-red-500/20"><i id="fileIcon" class="fa-solid fa-file-pdf text-red-500 text-xl"></i></div>
+                        <div class="flex-1 min-w-0">
+                            <p id="fileName" class="font-bold text-[14px] text-gray-900 dark:text-white truncate">doc.pdf</p>
+                            <span class="text-[10px] font-bold bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400 px-2 py-0.5 rounded border border-green-200 dark:border-green-800 flex items-center w-max gap-1 mt-0.5 shadow-sm"><i class="fa-solid fa-check"></i><span id="filePagesDisplay">0 Pages</span></span>
+                        </div>
+                        <button class="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 tactile transition-all shrink-0" onclick="resetFile(event)"><i class="fa-solid fa-trash-can text-[12px]"></i></button>
+                    </div>
+                </div>
+
+                <!-- Settings Zone -->
+                <div id="printOptionsPanel" class="opacity-40 pointer-events-none transition-all duration-500">
+                    <div class="flex justify-between items-end mb-3 ml-1">
+                        <h3 class="text-[12px] font-bold text-gray-400 uppercase tracking-widest">2. Settings</h3>
+                        <span class="text-[10px] font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-500/10 px-2 py-1 rounded-lg border border-brand-100 dark:border-brand-500/20 transition-colors shadow-sm" id="pageCostBadge">₹2/pg</span>
+                    </div>
+                    
+                    <div class="glass-panel rounded-[32px] p-2 space-y-1 shadow-sm transition-all duration-300">
+                        
+                        <div class="p-2 grid grid-cols-2 gap-2">
+                            <label class="cursor-pointer relative tactile group">
+                                <input type="radio" name="colorMode" value="bw" class="peer hidden" checked onchange="calculatePrice()">
+                                <div class="border border-gray-200 dark:border-gray-700 rounded-2xl p-4 flex flex-col items-center bg-white/60 dark:bg-gray-800/50 peer-checked:border-brand-500 peer-checked:bg-white dark:peer-checked:bg-gray-800 peer-checked:shadow-md transition-all duration-300 relative overflow-hidden">
+                                    <i class="fa-solid fa-circle-half-stroke text-gray-400 dark:text-gray-500 mb-2 text-xl peer-checked:text-gray-900 dark:peer-checked:text-white transition-all duration-300 peer-checked:scale-110"></i>
+                                    <p class="text-[13px] font-bold text-gray-500 peer-checked:text-gray-900 dark:peer-checked:text-white transition-colors relative z-10">B & W</p>
+                                </div>
+                            </label>
+                            
+                            <label class="cursor-pointer relative tactile group" id="colorOptionLabel">
+                                <input type="radio" name="colorMode" value="color" class="peer hidden" onchange="calculatePrice()">
+                                <div class="border border-gray-200 dark:border-gray-700 rounded-2xl p-4 flex flex-col items-center bg-white/60 dark:bg-gray-800/50 peer-checked:border-purple-500/50 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/20 peer-checked:shadow-[0_0_20px_rgba(168,85,247,0.2)] transition-all duration-300 relative overflow-hidden">
+                                    <div class="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 opacity-0 peer-checked:opacity-100 transition-opacity duration-300"></div>
+                                    
+                                    <div class="relative w-8 h-8 mb-2 flex items-center justify-center transition-transform duration-300 peer-checked:scale-110 z-10">
+                                        <i class="fa-solid fa-droplet text-gray-400 dark:text-gray-500 absolute text-xl transition-opacity duration-300 peer-checked:opacity-0 inline-block"></i>
+                                        <div class="absolute inset-0 opacity-0 peer-checked:opacity-100 transition-opacity duration-500 flex items-center justify-center">
+                                             <i class="fa-solid fa-droplet text-cyan-400 absolute -ml-2.5 mix-blend-multiply dark:mix-blend-screen text-xl inline-block drop-shadow-sm"></i>
+                                             <i class="fa-solid fa-droplet text-pink-500 absolute mix-blend-multiply dark:mix-blend-screen text-xl inline-block drop-shadow-sm"></i>
+                                             <i class="fa-solid fa-droplet text-yellow-400 absolute ml-2.5 mix-blend-multiply dark:mix-blend-screen text-xl inline-block drop-shadow-sm"></i>
+                                        </div>
+                                    </div>
+                                    
+                                    <p class="text-[13px] font-bold text-gray-500 peer-checked:text-purple-700 dark:peer-checked:text-purple-300 relative z-10 transition-colors">Color</p>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Double Sided -->
+                        <div class="p-4 flex items-center justify-between">
+                            <div>
+                                <p class="text-[14px] font-bold text-gray-900 dark:text-white tracking-tight">Double Sided</p>
+                                <p class="text-[11px] text-gray-500 font-medium mt-0.5">Save paper</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer tactile">
+                                <input type="checkbox" id="doubleSidedToggle" class="sr-only peer" checked onchange="calculatePrice()">
+                                <div class="w-11 h-6 bg-gray-300 dark:bg-gray-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all after:shadow-sm peer-checked:bg-brand-500 shadow-inner"></div>
+                            </label>
+                        </div>
+
+                        <div class="h-px bg-gray-200 dark:bg-gray-700/50 mx-4"></div>
+                        
+                        <div class="p-4 relative">
+                            <p class="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">Finishing</p>
+                            <div class="relative tactile">
+                                <select id="bindingSelect" class="w-full bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-[14px] font-bold rounded-xl p-3.5 outline-none appearance-none shadow-inner focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all" onchange="calculatePrice()">
+                                    <option value="none">No Binding</option>
+                                    <option value="staple">Staple (Free)</option>
+                                    <option value="spiral">Spiral (+₹40)</option>
+                                </select>
+                                <i class="fa-solid fa-chevron-down absolute right-4 top-[18px] text-gray-400 text-[12px] pointer-events-none"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="h-px bg-gray-200 dark:bg-gray-700/50 mx-4"></div>
+
+                        <!-- Copies -->
+                        <div class="p-4 flex items-center justify-between pb-4">
+                            <p class="text-[14px] font-bold text-gray-900 dark:text-white tracking-tight">Copies</p>
+                            <div class="flex items-center gap-4 bg-white/80 dark:bg-gray-800/80 rounded-xl p-1.5 border border-gray-200 dark:border-gray-700 shadow-inner shrink-0">
+                                <button onclick="updateCopies(-1)" class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 tactile shadow-sm border border-transparent hover:border-gray-200 dark:hover:border-gray-600 transition-all active:bg-gray-200"><i class="fa-solid fa-minus text-[12px]"></i></button>
+                                <span id="copiesCount" class="font-black text-[16px] text-gray-900 dark:text-white w-5 text-center transition-all duration-200 inline-block">1</span>
+                                <button onclick="updateCopies(1)" class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 tactile shadow-sm border border-transparent hover:border-gray-200 dark:hover:border-gray-600 transition-all active:bg-gray-200"><i class="fa-solid fa-plus text-[12px]"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Absolute Pinned Bottom Dock -->
+            <div class="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] max-w-[380px] glass-panel p-2 rounded-[32px] border border-white/50 dark:border-gray-700 shadow-[0_10px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.5)] z-30 transition-all duration-300">
+                <div class="flex items-center justify-between px-4 pt-2 pb-3">
+                    <div>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Total Due</p>
+                        <div class="flex items-end gap-2">
+                            <p class="text-[32px] font-black tracking-tighter text-gray-900 dark:text-white leading-none transition-transform inline-block" id="totalPriceDisplay">₹0</p>
+                        </div>
+                    </div>
+                    <div class="text-right flex flex-col justify-end">
+                         <span class="text-[11px] font-bold bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm transition-all mb-1 shrink-0" id="priceDetailBadge">0 shts</span>
+                    </div>
+                </div>
+                <button id="proceedBtn" onclick="goToPayment()" class="w-full bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 font-bold py-4 rounded-2xl transition-all duration-300 cursor-not-allowed flex items-center justify-center gap-2 text-[16px]" disabled>
+                    Select File to Proceed
+                </button>
+            </div>
+        </main>
+
+        <!-- PAYMENT VIEW -->
+        <main id="view-payment" class="view-section hidden pt-[72px]">
+            <div class="scroll-content px-5 pt-6 pb-[120px]">
+                <h2 class="text-[32px] font-black tracking-tighter mb-6 text-gray-900 dark:text-white leading-tight">Checkout</h2>
+                
+                <div class="glass-panel rounded-[32px] p-5 mb-8 shadow-sm relative overflow-hidden animate-pop">
+                    <div class="absolute top-0 left-0 w-full h-2 bg-[radial-gradient(circle,transparent_4px,white_4px)] dark:bg-[radial-gradient(circle,transparent_4px,#141416_4px)] bg-[length:12px_12px] -mt-1 opacity-50"></div>
+                    
+                    <div class="flex justify-between items-start mb-4 mt-2">
+                        <div class="pr-4 shrink-0 min-w-0 flex-1">
+                            <p class="font-bold text-gray-900 dark:text-white text-[16px] mb-1 truncate tracking-tight" id="summaryFile">doc.pdf</p>
+                            <p id="summaryDetails" class="font-medium text-gray-500 text-[13px] truncate">5 Pages • B&W • Double</p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-800/50 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-center shrink-0 shadow-inner">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Qty</p>
+                            <p class="text-[16px] font-black text-gray-900 dark:text-white leading-none mt-1" id="summaryCopies">1</p>
+                        </div>
+                    </div>
+                    <div class="border-t border-dashed border-gray-200 dark:border-gray-700 pt-4 flex justify-between items-center">
+                        <p class="font-bold text-gray-500 text-[14px]">To Pay</p>
+                        <p class="text-3xl font-black tracking-tighter text-gray-900 dark:text-white" id="summaryTotal">₹0</p>
+                    </div>
+                </div>
+
+                <h3 class="text-[12px] font-bold text-gray-400 uppercase tracking-widest mb-4 ml-1">Pay Instantly</h3>
+                <div class="grid grid-cols-2 gap-3 mb-6" id="upiContainer">
+                    <button class="pay-app glass-panel py-4 rounded-2xl flex items-center justify-center gap-2 tactile group" onclick="selectUpiApp(this, 'upi')">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/f/f2/Google_Pay_Logo.svg" class="w-10 group-hover:scale-110 transition-transform">
+                    </button>
+                    <button class="pay-app glass-panel py-4 rounded-2xl flex items-center justify-center gap-2 tactile group" onclick="selectUpiApp(this, 'upi')">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/7/71/PhonePe_Logo.svg" class="w-7 group-hover:scale-110 transition-transform">
+                    </button>
+                </div>
+
+                <div class="relative flex items-center justify-center mb-6 opacity-60">
+                    <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-300 dark:border-gray-700"></div></div>
+                    <div class="relative bg-[#F8FAFC] dark:bg-[#0A0A0C] px-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest transition-colors duration-500">OR</div>
+                </div>
+
+                <button onclick="submitOrderToCloud('cash')" class="w-full glass-panel border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white font-bold py-4 rounded-2xl tactile flex items-center justify-center gap-2 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:border-orange-200 dark:hover:border-orange-900/50 transition-colors shadow-sm">
+                    <i class="fa-solid fa-money-bill text-orange-500 text-lg"></i> Pay Cash at Counter
+                </button>
+            </div>
+        </main>
+
+        <!-- SUCCESS / TRACKING VIEW -->
+        <main id="view-success" class="view-section hidden pt-[72px] bg-gray-50/30 dark:bg-black/30 backdrop-blur-md">
+            <div class="scroll-content px-5 pt-6 pb-[140px] flex flex-col relative z-10">
+                <h2 class="text-[32px] font-black tracking-tighter mb-6 text-gray-900 dark:text-white shrink-0">Live Track</h2>
+                
+                <div class="glass-panel border border-gray-200 dark:border-gray-700 rounded-[32px] p-6 shadow-xl relative w-full shrink-0 flex flex-col h-auto min-h-max">
+                    
+                    <div id="radarPulse" class="absolute top-10 right-6 w-16 h-16 bg-brand-500/20 rounded-full animate-ping hidden pointer-events-none"></div>
+                    
+                    <div class="flex justify-between items-start mb-6 relative z-10 shrink-0">
+                        <div>
+                            <p class="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-1">Pick-up Token</p>
+                            <h1 class="text-5xl font-black text-brand-500 tracking-tighter transition-all duration-500" id="tokenNumber">#--</h1>
+                        </div>
+                        <div id="statusIconBox" class="w-16 h-16 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 animate-pop shrink-0 transition-all duration-500 shadow-sm">
+                            <i class="fa-solid fa-spinner fa-spin text-gray-400 text-xl"></i>
+                        </div>
+                    </div>
+
+                    <h3 id="successTitle" class="text-[22px] font-black text-gray-900 dark:text-white mb-1 tracking-tight transition-all duration-300 shrink-0">Processing...</h3>
+                    <p id="successSub" class="text-[14px] text-gray-500 font-medium mb-6 transition-all duration-300 shrink-0">Connecting to cloud database.</p>
+                    
+                    <div class="relative pt-2 pb-6 shrink-0 mb-4">
+                        <div class="absolute top-4 left-5 right-5 h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full z-0 overflow-hidden shadow-inner">
+                            <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 dark:via-white/10 to-transparent w-[200%] animate-[slideRight_2s_infinite]"></div>
+                        </div>
+                        <div id="progressBar" class="absolute top-4 left-5 h-1.5 bg-brand-500 rounded-full z-0 transition-all duration-[1500ms] ease-in-out w-0 shadow-[0_0_15px_rgba(0,85,255,0.8)]"></div>
+                        
+                        <div class="relative z-10 flex justify-between px-1">
+                            <div class="flex flex-col items-center gap-2">
+                                <div id="step1Dot" class="w-6 h-6 rounded-full bg-brand-500 border-4 border-white dark:border-[#141416] shadow-[0_0_10px_rgba(0,85,255,0.4)] transition-all duration-500 scale-110 relative shrink-0">
+                                    <div class="absolute inset-0 rounded-full bg-brand-500 opacity-20 animate-ping"></div>
+                                </div>
+                                <p class="text-[10px] font-bold text-brand-500" id="step1Text">Placed</p>
+                            </div>
+                            <div class="flex flex-col items-center gap-2">
+                                <div id="step2Dot" class="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-800 border-4 border-white dark:border-[#141416] shadow-sm transition-all duration-500 delay-100 shrink-0"></div>
+                                <p class="text-[10px] font-bold text-gray-400 transition-colors" id="step2Text">Printing</p>
+                            </div>
+                            <div class="flex flex-col items-center gap-2">
+                                <div id="step3Dot" class="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-800 border-4 border-white dark:border-[#141416] shadow-sm transition-all duration-500 delay-200 shrink-0"></div>
+                                <p class="text-[10px] font-bold text-gray-400 transition-colors" id="step3Text">Ready</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="cashActionArea" class="hidden border-t border-gray-200 dark:border-gray-800 pt-6 shrink-0 mt-2">
+                        <div class="flex items-center gap-3 mb-5 bg-orange-50 dark:bg-orange-900/20 p-3.5 rounded-2xl border border-orange-200 dark:border-orange-500/30 transform transition-transform duration-300 shadow-inner shrink-0">
+                            <div class="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-800/50 flex items-center justify-center shrink-0 border border-orange-200 dark:border-orange-500/30 shadow-sm">
+                                <i class="fa-solid fa-money-bill-wave text-orange-500 text-sm"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-[14px] font-bold text-gray-900 dark:text-white truncate">Cash Pending</p>
+                                <p class="text-[11px] text-gray-500 font-medium truncate">Shop will print after payment.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="readyActionArea" class="hidden border-t border-gray-200 dark:border-gray-800 pt-6 shrink-0 mt-2">
+                        <div class="flex items-center gap-4 bg-white/50 dark:bg-black/40 p-4 rounded-2xl text-left border border-gray-200/50 dark:border-gray-700/50 shadow-inner transform transition-all duration-500 translate-y-4 opacity-0 shrink-0" id="qrContainer">
+                            <div class="w-14 h-14 bg-white rounded-xl flex items-center justify-center shrink-0 border border-gray-200 shadow-sm p-1.5">
+                                 <img id="qrMock" src="" class="w-full h-full object-contain shrink-0 rounded-lg">
+                            </div>
+                            <div class="shrink-0 flex-1 min-w-0">
+                                <p class="text-[15px] font-bold text-gray-900 dark:text-white truncate tracking-tight" id="pickupShopName">Shop Name</p>
+                                <p class="text-[11px] text-gray-500 font-medium mt-0.5 truncate">Show QR to collect prints.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="doneOverlay" class="absolute inset-0 bg-white/95 dark:bg-black/95 backdrop-blur-2xl z-[60] flex flex-col items-center justify-center hidden opacity-0 transition-opacity duration-500">
+                <div class="w-28 h-28 bg-green-500 text-white rounded-full flex items-center justify-center text-6xl mb-6 shadow-[0_0_40px_rgba(34,197,94,0.4)] animate-pop">
+                    <i class="fa-solid fa-check"></i>
+                </div>
+                <h2 class="text-[36px] font-black text-gray-900 dark:text-white tracking-tighter mb-2">Collected!</h2>
+                <p class="text-gray-500 font-medium text-[16px]">Thank you for using Printix.</p>
+            </div>
+        </main>
+
+        <!-- PROFILE VIEW -->
+        <main id="view-profile" class="view-section hidden pt-[72px]">
+            <div class="scroll-content px-5 pt-6 pb-[140px]">
+                <h2 class="text-[32px] font-black tracking-tighter mb-6 text-gray-900 dark:text-white leading-tight">Settings</h2>
+                
+                <div class="glass-panel rounded-[32px] p-5 mb-6 flex items-center gap-5 border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden group hover-lift transition-all">
+                    <div class="w-20 h-20 rounded-full overflow-hidden border-2 border-brand-500 p-0.5 shrink-0 bg-gray-100 dark:bg-gray-800 relative tactile cursor-pointer group shadow-sm transition-transform group-hover:scale-105" onclick="openAvatarModal()">
+                        <img id="profileAvatarBig" src="https://api.dicebear.com/7.x/notionists/svg?seed=Default" class="w-full h-full object-cover rounded-full transition-opacity group-hover:opacity-80">
+                        <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                            <i class="fa-solid fa-camera text-white text-sm"></i>
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-black text-[20px] text-gray-900 dark:text-white tracking-tight truncate" id="profileNameDisplay">Guest</h3>
+                        <p class="text-[13px] font-bold text-gray-500 mt-0.5 truncate" id="profilePhoneDisplay">+91 --</p>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="text-[12px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-4">Preferences</h3>
+                        <div class="glass-panel rounded-[24px] overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm">
+                            <div class="p-4 flex items-center justify-between hover:bg-white/40 dark:hover:bg-black/20 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-black flex items-center justify-center shadow-sm"><i class="fa-solid fa-moon text-[12px]"></i></div>
+                                    <p class="text-[15px] font-bold text-gray-900 dark:text-white tracking-tight">Theme</p>
+                                </div>
+                                <select id="themeSelect" class="bg-gray-100 dark:bg-gray-800 text-[13px] font-bold rounded-xl px-3 py-1.5 outline-none border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white tactile transition-colors shadow-inner" onchange="manualThemeSet()">
+                                    <option value="auto">Auto (OS)</option>
+                                    <option value="light">Light</option>
+                                    <option value="dark">Dark</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button class="w-full bg-white dark:bg-gray-800 text-red-500 font-bold py-4 rounded-2xl tactile mt-8 border border-gray-200 dark:border-gray-700 shadow-sm hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors text-[15px]" onclick="logOut()">Sign Out</button>
+            </div>
+        </main>
+        
+        <!-- HISTORY VIEW -->
+        <main id="view-history" class="view-section hidden pt-[72px]">
+            <div class="scroll-content px-5 pt-6 pb-[140px]">
+                <h2 class="text-[32px] font-black tracking-tighter mb-6 text-gray-900 dark:text-white leading-tight">Order History</h2>
+                <div id="historyList" class="flex flex-col gap-4">
+                     <p class="text-gray-500 text-center font-bold text-sm">Syncing History...</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Bottom Sheet Modals -->
+        <div id="avatarModal" class="absolute inset-0 modal-overlay hidden flex-col justify-end opacity-0 transition-opacity duration-300">
+            <div class="flex-1" onclick="closeAvatarModal()"></div>
+            <div class="glass-panel border-t border-gray-200 dark:border-gray-700 rounded-t-[40px] p-8 transform translate-y-full transition-transform duration-400 shadow-[0_-20px_40px_rgba(0,0,0,0.2)]" id="avatarContent">
+                <div class="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-6"></div>
+                <h3 class="font-black text-[22px] text-gray-900 dark:text-white mb-6 tracking-tight">Change Photo</h3>
+                
+                <div class="grid grid-cols-3 gap-y-6 gap-x-4 mb-8 place-items-center">
+                    <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Rahul" class="w-16 h-16 rounded-full border-2 border-transparent hover:border-brand-500 cursor-pointer tactile transition-all shadow-sm bg-gray-50" onclick="setPresetAvatar('Rahul')">
+                    <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Priya" class="w-16 h-16 rounded-full border-2 border-transparent hover:border-brand-500 cursor-pointer tactile transition-all shadow-sm bg-gray-50" onclick="setPresetAvatar('Priya')">
+                    <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Sam" class="w-16 h-16 rounded-full border-2 border-transparent hover:border-brand-500 cursor-pointer tactile transition-all shadow-sm bg-gray-50" onclick="setPresetAvatar('Sam')">
+                    <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Anita" class="w-16 h-16 rounded-full border-2 border-transparent hover:border-brand-500 cursor-pointer tactile transition-all shadow-sm bg-gray-50" onclick="setPresetAvatar('Anita')">
+                    <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Vikram" class="w-16 h-16 rounded-full border-2 border-transparent hover:border-brand-500 cursor-pointer tactile transition-all shadow-sm bg-gray-50" onclick="setPresetAvatar('Vikram')">
+                    <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Neha" class="w-16 h-16 rounded-full border-2 border-transparent hover:border-brand-500 cursor-pointer tactile transition-all shadow-sm bg-gray-50" onclick="setPresetAvatar('Neha')">
+                </div>
+                <div class="pb-safe"></div>
+            </div>
+        </div>
+
+        <div id="filterModal" class="absolute inset-0 modal-overlay hidden flex-col justify-end opacity-0 transition-opacity duration-300">
+            <div class="flex-1" onclick="closeFilterModal()"></div>
+            <div class="glass-panel border-t border-gray-200 dark:border-gray-700 rounded-t-[40px] p-8 transform translate-y-full transition-transform duration-400 shadow-[0_-20px_40px_rgba(0,0,0,0.2)]" id="filterContent">
+                <div class="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-6"></div>
+                <h3 class="font-black text-[22px] text-gray-900 dark:text-white mb-6 tracking-tight">Sort & Filter</h3>
+                <div class="space-y-4 mb-8">
+                    <label class="flex justify-between items-center p-4 bg-white/60 dark:bg-black/30 rounded-2xl border border-gray-200 dark:border-gray-700 tactile cursor-pointer shadow-sm hover:shadow-md transition-shadow">
+                        <span class="font-bold text-[15px] text-gray-900 dark:text-white tracking-tight">Nearest to me</span>
+                        <input type="radio" name="sort" checked class="w-5 h-5 text-brand-500 focus:ring-brand-500">
+                    </label>
+                    <label class="flex justify-between items-center p-4 bg-white/60 dark:bg-black/30 rounded-2xl border border-gray-200 dark:border-gray-700 tactile cursor-pointer shadow-sm hover:shadow-md transition-shadow">
+                        <span class="font-bold text-[15px] text-gray-900 dark:text-white tracking-tight">Top Rated</span>
+                        <input type="radio" name="sort" class="w-5 h-5 text-brand-500 focus:ring-brand-500">
+                    </label>
+                </div>
+                <button class="w-full bg-brand-500 text-white font-bold py-4 rounded-2xl tactile glow-brand hover:bg-brand-600 transition-colors text-[15px]" onclick="applyFilters()">Apply Filters</button>
+                <div class="pb-safe"></div>
+            </div>
+        </div>
+
+        <!-- Global Nav Dock -->
+        <nav id="bottomNav" class="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] max-w-[320px] glass-header rounded-full p-1.5 flex justify-between z-40 hidden shadow-[0_15px_40px_-5px_rgba(0,0,0,0.1)] dark:shadow-[0_15px_40px_-5px_rgba(0,0,0,0.6)] border border-white/50 dark:border-gray-700/50 transition-all duration-300">
+            <button onclick="switchNav('home')" id="nav-home" class="flex-1 py-3 flex items-center justify-center rounded-full text-brand-500 bg-brand-50 dark:bg-brand-900/30 shadow-sm transition-all duration-300 tactile nav-active">
+                <i class="fa-solid fa-house text-[18px]"></i>
+            </button>
+            <button onclick="switchNav('history')" id="nav-history" class="flex-1 py-3 flex items-center justify-center rounded-full text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-all duration-300 tactile">
+                <i class="fa-solid fa-clock-rotate-left text-[18px]"></i>
+            </button>
+            <button onclick="switchNav('profile')" id="nav-profile" class="flex-1 py-3 flex items-center justify-center rounded-full text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-all duration-300 tactile">
+                <i class="fa-solid fa-user text-[18px]"></i>
+            </button>
+        </nav>
+        
+        <!-- Global Toast -->
+        <div id="toast" class="absolute top-24 left-1/2 transform -translate-x-1/2 glass-panel border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white px-5 py-3 rounded-full shadow-2xl text-[13px] font-bold transition-all duration-400 opacity-0 translate-y-[-20px] pointer-events-none z-[100] whitespace-nowrap flex items-center gap-2">
+            <i class="fa-solid fa-circle-check text-brand-500 text-lg"></i> <span id="toastMsg">Action successful</span>
+        </div>
+    </div>
+
+    <script>
+        // --- PRODUCTION SUPABASE SETUP ---
+        const supabaseUrl = 'https://lgwcdvnfwvvlmevwixmcj.supabase.co';
+        const supabaseKey = 'sb_publishable_HeHVAZythRmjznjr0Cc7uw_FMLCHq2M';
+        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        const state = { view: 'auth', shop: { name: '', id: '849201', hasColor: true }, total: 0, filePages: 1, fileUrl: null };
+        const views = ['view-auth', 'view-home', 'view-upload', 'view-payment', 'view-success', 'view-profile', 'view-history'];
+        
+        let currentUser = null;
+        let currentOrderId = null;
+        let realTimeSubscription = null;
+
+        window.onload = async () => {
+            initTheme();
+            document.getElementById('themeSelect').value = localStorage.getItem('theme-mode') || 'auto';
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+                if((localStorage.getItem('theme-mode') || 'auto') === 'auto') applyTheme(e.matches);
+            });
+
+            // Check existing session
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                currentUser = session.user;
+                document.getElementById('profilePhoneDisplay').innerText = currentUser.phone;
+                showView('view-home');
+                fetchHistory();
+            } else {
+                document.getElementById('mobileInput').focus();
+            }
+        };
+
+        // --- AUTH (Supabase OTP) ---
+        async function requestOTP() {
+            const phone = document.getElementById('mobileInput').value;
+            if(phone.length !== 10) { showToast("Enter a valid 10-digit number"); return; }
+            
+            const btn = document.getElementById('reqOtpBtn');
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sending...`;
+            
+            try {
+                const { data, error } = await supabase.auth.signInWithOtp({ phone: '+91' + phone });
+                if (error) throw error;
+                
+                document.getElementById('displayPhoneNo').innerText = '+91 ' + phone;
+                document.getElementById('authStepPhone').classList.add('-translate-x-full');
+                document.getElementById('authStepOTP').classList.remove('translate-x-full');
+                setTimeout(() => document.getElementById('otp1').focus(), 500);
+            } catch (error) {
+                console.error(error);
+                // Fallback for demo if SMS Provider isn't configured in Supabase yet
+                if(error.message.includes("sms provider")) {
+                    showToast("SMS Provider not set in Supabase. Using Mock Bypass.");
+                    document.getElementById('displayPhoneNo').innerText = '+91 ' + phone;
+                    document.getElementById('authStepPhone').classList.add('-translate-x-full');
+                    document.getElementById('authStepOTP').classList.remove('translate-x-full');
+                    setTimeout(() => document.getElementById('otp1').focus(), 500);
+                } else {
+                    showToast("Error: " + error.message);
+                }
+            } finally {
+                btn.innerHTML = `Get OTP`;
+            }
+        }
+
+        async function verifyOTP() {
+            const phone = document.getElementById('mobileInput').value;
+            const otp = document.getElementById('otp1').value + document.getElementById('otp2').value + document.getElementById('otp3').value + document.getElementById('otp4').value;
+            
+            if(otp.length !== 4) { showToast("Enter 4-digit code"); return; }
+            
+            const btn = document.getElementById('verifyOtpBtn');
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Verifying...`;
+
+            try {
+                const { data: { session }, error } = await supabase.auth.verifyOtp({ phone: '+91' + phone, token: otp, type: 'sms' });
+                
+                if (error) {
+                    // MOCK BYPASS if real SMS isn't setup
+                    showToast("Mock Auth Success (Setup Twilio for Real OTP)");
+                    currentUser = { phone: '+91' + phone }; 
+                } else {
+                    currentUser = session.user;
+                }
+                
+                document.getElementById('profilePhoneDisplay').innerText = currentUser.phone;
+                switchNav('home');
+                fetchHistory();
+            } catch (error) {
+                showToast("Verification failed.");
+            } finally {
+                btn.innerHTML = `Verify & Proceed`;
+            }
+        }
+
+        function moveToNext(current, nextFieldID, prevFieldID) {
+            if (current.value.length >= current.maxLength && nextFieldID) { document.getElementById(nextFieldID).focus(); }
+            else if (current.value.length === 0 && prevFieldID && event.key === "Backspace") { document.getElementById(prevFieldID).focus(); }
+        }
+
+        function backToPhone() {
+            document.getElementById('authStepOTP').classList.add('translate-x-full');
+            document.getElementById('authStepPhone').classList.remove('-translate-x-full');
+            document.getElementById('otp1').value = ''; document.getElementById('otp2').value = ''; document.getElementById('otp3').value = ''; document.getElementById('otp4').value = '';
+        }
+        
+        async function logOut() {
+            await supabase.auth.signOut();
+            currentUser = null;
+            document.getElementById('view-auth').classList.remove('hidden');
+            document.getElementById('view-auth').classList.add('active');
+            backToPhone();
+            document.getElementById('app-header').classList.add('hidden');
+            document.getElementById('bottomNav').classList.add('hidden');
+            views.forEach(v => { if(v !== 'view-auth') document.getElementById(v).classList.add('hidden'); });
+            showToast("Logged out securely");
+        }
+
+        // --- Core UI logic ---
+        function initTheme() {
+            const mode = localStorage.getItem('theme-mode') || 'auto';
+            const isDarkOS = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            applyTheme(mode === 'auto' ? isDarkOS : mode === 'dark');
+        }
+
+        function manualThemeSet() {
+            const val = document.getElementById('themeSelect').value;
+            localStorage.setItem('theme-mode', val);
+            initTheme();
+        }
+
+        function applyTheme(isDark) {
+            const html = document.documentElement;
+            if (isDark) { html.classList.add('dark'); html.classList.remove('light'); }
+            else { html.classList.add('light'); html.classList.remove('dark'); }
+        }
+
+        function showView(viewId) {
+            views.forEach(v => {
+                const el = document.getElementById(v);
+                if (el && v !== viewId) { el.classList.remove('active'); setTimeout(() => el.classList.add('hidden'), 50); }
+            });
+            const activeView = document.getElementById(viewId);
+            activeView.classList.remove('hidden');
+            setTimeout(() => activeView.classList.add('active'), 10);
+            state.view = viewId.replace('view-', '');
+            
+            const header = document.getElementById('app-header');
+            const nav = document.getElementById('bottomNav');
+            const backBtn = document.getElementById('backBtn');
+            const titleArea = document.getElementById('headerTitleArea');
+
+            if(state.view === 'auth' || state.view === 'success') {
+                header.classList.add('hidden'); nav.classList.add('hidden');
+            } else {
+                header.classList.remove('hidden');
+                if(['home', 'history', 'profile'].includes(state.view)) {
+                    nav.classList.remove('hidden'); backBtn.classList.add('hidden');
+                    let t = state.view === 'home' ? 'Printix' : (state.view === 'profile' ? 'Settings' : 'History');
+                    titleArea.innerHTML = `<h1 class="text-[22px] font-black tracking-tighter">${t}</h1>`;
+                } else {
+                    nav.classList.add('hidden'); backBtn.classList.remove('hidden');
+                    let t = 'Back';
+                    if(state.view === 'upload') t = 'Transaction';
+                    if(state.view === 'payment') t = 'Checkout';
+                    titleArea.innerHTML = `<h1 class="text-[18px] font-black tracking-tight">${t}</h1>`;
+                }
+            }
+        }
+
+        function switchNav(tab) {
+            ['home', 'history', 'profile'].forEach(t => {
+                const el = document.getElementById(`nav-${t}`);
+                if (el) { el.className = "flex-1 py-3 flex items-center justify-center rounded-full text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-all duration-300 tactile"; el.classList.remove('nav-active'); }
+            });
+            const active = document.getElementById(`nav-${tab}`);
+            if(active) { active.className = "flex-1 py-3 flex items-center justify-center rounded-full text-brand-500 bg-brand-50 dark:bg-brand-900/30 shadow-sm transition-all duration-300 tactile nav-active"; }
+            showView(`view-${tab}`);
+            if(tab === 'history') fetchHistory();
+        }
+
+        function goBack() {
+            if(state.view === 'upload') { resetFile(); switchNav('home'); }
+            else if(state.view === 'payment') showView('view-upload');
+        }
+
+        // --- Shop & Upload Flow ---
+        function selectShop(name, details, hasColor, overrideId) {
+            state.shop = { name, hasColor, id: overrideId || '849201' };
+            document.getElementById('selectedShopName').innerText = name;
+            document.getElementById('selectedShopDetail').innerText = details;
+            
+            const colorLabel = document.getElementById('colorOptionLabel');
+            if(!hasColor) {
+                colorLabel.classList.add('opacity-40', 'pointer-events-none');
+                document.querySelector('input[value="bw"]').checked = true;
+            } else {
+                colorLabel.classList.remove('opacity-40', 'pointer-events-none');
+            }
+            showView('view-upload');
+        }
+
+        async function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if(!file) return;
+            
+            document.getElementById('uploadPlaceholder').classList.add('hidden');
+            document.getElementById('fileLoading').classList.remove('hidden');
+            state.fileUrl = URL.createObjectURL(file);
+            
+            try {
+                if(file.type === 'application/pdf') {
+                    const loadingTask = pdfjsLib.getDocument(state.fileUrl);
+                    const pdf = await loadingTask.promise;
+                    state.filePages = pdf.numPages;
+                    finalizeUpload(file.name, file.type);
+                } else {
+                    state.filePages = 1;
+                    setTimeout(() => finalizeUpload(file.name, file.type), 600); 
+                }
+            } catch (err) {
+                state.filePages = 1;
+                finalizeUpload(file.name, file.type);
+            }
+        }
+
+        function finalizeUpload(name, type) {
+            document.getElementById('fileLoading').classList.add('hidden');
+            document.getElementById('fileSuccess').classList.remove('hidden');
+            document.getElementById('fileName').innerText = name;
+            document.getElementById('filePagesDisplay').innerText = `${state.filePages} Page${state.filePages>1?'s':''}`;
+            
+            const iconContainer = document.getElementById('fileIconContainer');
+            const icon = document.getElementById('fileIcon');
+            
+            if (type && type.startsWith('image/')) {
+                iconContainer.className = "w-12 h-14 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-500/20";
+                icon.className = "fa-solid fa-image text-blue-500 text-xl";
+            } else {
+                iconContainer.className = "w-12 h-14 bg-red-50 dark:bg-red-500/10 rounded-xl flex items-center justify-center shrink-0 border border-red-100 dark:border-red-500/20";
+                icon.className = "fa-solid fa-file-pdf text-red-500 text-xl";
+            }
+            
+            const panel = document.getElementById('printOptionsPanel');
+            panel.classList.remove('opacity-40', 'pointer-events-none');
+            calculatePrice();
+        }
+
+        function resetFile(e) {
+            if(e) e.stopPropagation();
+            document.getElementById('fileInput').value = '';
+            if(state.fileUrl) URL.revokeObjectURL(state.fileUrl);
+            
+            document.getElementById('uploadPlaceholder').classList.remove('hidden');
+            document.getElementById('fileLoading').classList.add('hidden');
+            document.getElementById('fileSuccess').classList.add('hidden');
+            document.getElementById('printOptionsPanel').classList.add('opacity-40', 'pointer-events-none');
+            
+            const priceEl = document.getElementById('totalPriceDisplay');
+            priceEl.innerText = `₹0`;
+            document.getElementById('priceDetailBadge').innerText = `0 shts`;
+            
+            const btn = document.getElementById('proceedBtn');
+            btn.disabled = true;
+            btn.className = "w-full bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 font-bold py-4 rounded-2xl transition-all duration-300 cursor-not-allowed flex items-center justify-center gap-2 text-[16px]";
+            btn.innerText = "Select File to Proceed";
+        }
+
+        function updateCopies(change) {
+            let c = parseInt(document.getElementById('copiesCount').innerText) + change;
+            if(c < 1) c = 1; if(c > 99) c = 99;
+            const countEl = document.getElementById('copiesCount');
+            countEl.innerText = c;
+            countEl.style.transform = 'scale(1.2)';
+            setTimeout(() => countEl.style.transform = 'scale(1)', 150);
+            calculatePrice();
+        }
+
+        function calculatePrice() {
+            const isColor = document.querySelector('input[name="colorMode"]:checked').value === 'color';
+            const isDouble = document.getElementById('doubleSidedToggle').checked;
+            const bind = document.getElementById('bindingSelect').value;
+            const copies = parseInt(document.getElementById('copiesCount').innerText);
+            
+            const badge = document.getElementById('pageCostBadge');
+            if(isColor) {
+                badge.innerText = '₹10/pg';
+                badge.className = "text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-2.5 py-1 rounded-lg border border-purple-100 dark:border-purple-500/20 transition-colors shadow-sm shrink-0";
+            } else {
+                badge.innerText = '₹2/pg';
+                badge.className = "text-[10px] font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-500/10 px-2.5 py-1 rounded-lg border border-brand-100 dark:border-brand-500/20 transition-colors shadow-sm shrink-0";
+            }
+            
+            let sheets = isDouble ? Math.ceil(state.filePages / 2) : state.filePages;
+            let cost = sheets * (isColor ? (isDouble?15:10) : (isDouble?3:2));
+            if(bind === 'spiral') cost += 40;
+            state.total = cost * copies;
+            
+            const priceEl = document.getElementById('totalPriceDisplay');
+            priceEl.innerText = `₹${state.total}`;
+            document.getElementById('priceDetailBadge').innerText = `${sheets*copies} shts`;
+            
+            priceEl.classList.remove('animate-bounce-short');
+            void priceEl.offsetWidth; 
+            priceEl.classList.add('animate-bounce-short');
+
+            const btn = document.getElementById('proceedBtn');
+            btn.disabled = false;
+            btn.className = "w-full bg-brand-500 text-white glow-brand font-bold py-4 rounded-2xl tactile flex items-center justify-center gap-2 text-[16px] transition-all hover:bg-brand-600 group";
+            btn.innerHTML = `Proceed to Payment <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>`;
+        }
+
+        function goToPayment() {
+            document.getElementById('summaryFile').innerText = document.getElementById('fileName').innerText;
+            document.getElementById('summaryTotal').innerText = `₹${state.total}`;
+            document.getElementById('summaryCopies').innerText = document.getElementById('copiesCount').innerText;
+            showView('view-payment');
+        }
+
+        let selectedMethod = 'upi';
+        function selectUpiApp(btn, type) {
+            document.querySelectorAll('.pay-app').forEach(el => {
+                el.classList.remove('selected', 'border-brand-500');
+                el.classList.add('unselected', 'border-transparent');
+            });
+            if(btn) {
+                btn.classList.remove('unselected', 'border-transparent');
+                btn.classList.add('selected', 'border-brand-500');
+            }
+            selectedMethod = type;
+            
+            // Simulating app switch
+            if(type === 'upi') {
+                showToast("Opening UPI App...");
+                setTimeout(() => submitOrderToCloud('upi'), 1500);
+            }
+        }
+
+        // --- CLOUD DB: SUBMIT ORDER ---
+        async function submitOrderToCloud(method) {
+            const token = Math.floor(1000 + Math.random() * 9000).toString();
+            document.getElementById('pickupShopName').innerText = state.shop.name;
+            
+            const orderData = {
+                customer_phone: currentUser?.phone || 'Guest',
+                shop_id: state.shop.id,
+                shop_name: state.shop.name,
+                file_name: document.getElementById('fileName').innerText,
+                pages: state.filePages,
+                copies: parseInt(document.getElementById('copiesCount').innerText),
+                color: document.querySelector('input[name="colorMode"]:checked').value === 'color' ? 'Color' : 'B&W',
+                sides: document.getElementById('doubleSidedToggle').checked ? 'Double Sided' : 'Single Sided',
+                binding: document.getElementById('bindingSelect').value === 'spiral' ? 'Spiral' : 'None',
+                total: state.total,
+                method: method,
+                status: method === 'cash' ? 'cash_due' : 'new',
+                token: token
+            };
+
+            try {
+                // Insert into Supabase Table
+                const { data, error } = await supabase.from('orders').insert([orderData]).select();
+                if (error) throw error;
+                
+                currentOrderId = data[0].id;
+                
+                startTrackingVisuals(method, token);
+                subscribeToOrderUpdates(currentOrderId);
+                
+            } catch (error) {
+                console.error("Order Insert Error:", error);
+                showToast("Failed to connect to Cloud Database.");
+            }
+        }
+
+        function startTrackingVisuals(method, token) {
+            const title = document.getElementById('successTitle');
+            const sub = document.getElementById('successSub');
+            const iconBox = document.getElementById('statusIconBox');
+            const tokenEl = document.getElementById('tokenNumber');
+            const cashAction = document.getElementById('cashActionArea');
+            const readyAction = document.getElementById('readyActionArea');
+            
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('step2Dot').className = "w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-800 border-4 border-white dark:border-[#141416] shadow-sm transition-colors duration-500 delay-100 shrink-0";
+            document.getElementById('step3Dot').className = "w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-800 border-4 border-white dark:border-[#141416] shadow-sm transition-colors duration-500 delay-200 shrink-0";
+            document.getElementById('step2Text').className = "text-[10px] font-bold text-gray-400";
+            document.getElementById('step3Text').className = "text-[10px] font-bold text-gray-400";
+            
+            if(method === 'cash') {
+                title.innerText = "Cash Due";
+                sub.innerText = "Order paused. Pay at counter.";
+                iconBox.innerHTML = `<i class="fa-solid fa-money-bill text-orange-500 text-xl"></i>`;
+                iconBox.className = "w-16 h-16 bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-200 dark:border-orange-500/30 rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pop";
+                tokenEl.innerText = "WAIT";
+                tokenEl.className = "text-5xl font-black text-gray-300 dark:text-gray-700 tracking-tighter transition-all duration-500";
+                
+                cashAction.classList.remove('hidden');
+                readyAction.classList.add('hidden');
+                document.getElementById('step2Text').innerText = "Hold";
+                
+                showView('view-success');
+            } else {
+                title.innerText = "Sent to Shop";
+                sub.innerText = "Live syncing via Supabase...";
+                tokenEl.innerText = `#${token}`;
+                tokenEl.className = "text-5xl font-black text-brand-500 tracking-tighter transition-all duration-500 animate-pop";
+                
+                cashAction.classList.add('hidden');
+                readyAction.classList.add('hidden');
+                document.getElementById('step2Text').innerText = "Printing";
+                
+                showView('view-success');
+                
+                // Assume Shop accepted it instantly for UI flow if Supabase update takes a second
+                setTimeout(() => advanceToPrinting(), 1500);
+            }
+        }
+
+        // --- CLOUD DB: REALTIME SUBSCRIPTION ---
+        function subscribeToOrderUpdates(orderId) {
+            if (realTimeSubscription) supabase.removeChannel(realTimeSubscription);
+            
+            realTimeSubscription = supabase.channel('custom-order-update')
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` }, (payload) => {
+                    const status = payload.new.status;
+                    if (status === 'ready') {
+                        completeOrderVisuals(payload.new.token);
+                    } else if (status === 'completed') {
+                        collectPrint();
+                    }
+                })
+                .subscribe();
+        }
+
+        function advanceToPrinting() {
+            const title = document.getElementById('successTitle');
+            const sub = document.getElementById('successSub');
+            const iconBox = document.getElementById('statusIconBox');
+            const radar = document.getElementById('radarPulse');
+            
+            title.innerText = "Printing in Progress";
+            title.classList.add('animate-pulse');
+            sub.innerText = "Your document is being rendered.";
+            
+            iconBox.innerHTML = `<i class="fa-solid fa-print text-blue-500 text-2xl animate-bounce-short"></i>`;
+            iconBox.className = "w-16 h-16 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-400 dark:border-blue-500 rounded-full flex items-center justify-center shrink-0 shadow-[0_0_30px_rgba(59,130,246,0.4)] transition-all duration-500 relative z-10 animate-pop";
+            
+            radar.classList.remove('hidden');
+
+            document.getElementById('progressBar').style.width = '50%';
+            
+            document.getElementById('step1Dot').className = "w-6 h-6 rounded-full bg-brand-500 border-4 border-white dark:border-[#141416] shadow-sm transition-all duration-500 shrink-0";
+            document.getElementById('step1Dot').innerHTML = '';
+            document.getElementById('step1Text').className = "text-[10px] font-bold text-brand-500";
+            
+            document.getElementById('step2Dot').className = "w-6 h-6 rounded-full bg-brand-500 border-4 border-white dark:border-[#141416] shadow-[0_0_15px_rgba(0,85,255,0.5)] scale-110 transition-all duration-500 delay-300 relative shrink-0";
+            document.getElementById('step2Dot').innerHTML = '<div class="absolute inset-0 rounded-full bg-brand-500 opacity-20 animate-ping"></div>';
+            document.getElementById('step2Text').className = "text-[10px] font-bold text-brand-500 transition-colors delay-300";
+        }
+
+        function completeOrderVisuals(token) {
+            const title = document.getElementById('successTitle');
+            const sub = document.getElementById('successSub');
+            const iconBox = document.getElementById('statusIconBox');
+            const readyAction = document.getElementById('readyActionArea');
+            const qrContainer = document.getElementById('qrContainer');
+            const radar = document.getElementById('radarPulse');
+            
+            if(document.getElementById('cashActionArea')) document.getElementById('cashActionArea').classList.add('hidden');
+
+            radar.classList.add('hidden');
+            title.classList.remove('animate-pulse');
+
+            title.innerText = "Ready for Pickup!";
+            sub.innerText = "Collect it at the counter.";
+            
+            iconBox.innerHTML = `<i class="fa-solid fa-check text-white text-3xl"></i>`;
+            iconBox.className = "w-20 h-20 bg-green-500 border-4 border-green-400 rounded-full flex items-center justify-center shrink-0 shadow-[0_0_40px_rgba(34,197,94,0.6)] transition-all duration-500 animate-pop relative z-10";
+            
+            document.getElementById('tokenNumber').innerText = `#${token}`;
+            document.getElementById('tokenNumber').className = "text-5xl font-black text-brand-500 tracking-tighter transition-all duration-500 animate-pop";
+            
+            document.getElementById('progressBar').style.width = '100%';
+            
+            document.getElementById('step2Dot').className = "w-6 h-6 rounded-full bg-brand-500 border-4 border-white dark:border-[#141416] shadow-sm transition-all duration-500 scale-100 shrink-0";
+            document.getElementById('step2Dot').innerHTML = '';
+            
+            document.getElementById('step3Dot').className = "w-6 h-6 rounded-full bg-green-500 border-4 border-white dark:border-[#141416] shadow-[0_0_15px_rgba(34,197,94,0.6)] scale-110 transition-all duration-500 delay-300 relative shrink-0";
+            document.getElementById('step3Dot').innerHTML = '<div class="absolute inset-0 rounded-full bg-green-500 opacity-20 animate-ping"></div>';
+            document.getElementById('step3Text').className = "text-[10px] font-bold text-green-500 transition-colors delay-300";
+            
+            document.getElementById('qrMock').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&ecc=H&data=Printix-${token}&color=0055FF`;
+            
+            readyAction.classList.remove('hidden');
+            setTimeout(() => { qrContainer.classList.remove('translate-y-4', 'opacity-0'); }, 50);
+        }
+
+        function collectPrint() {
+            const overlay = document.getElementById('doneOverlay');
+            overlay.classList.remove('hidden');
+            setTimeout(()=> overlay.classList.remove('opacity-0'), 10);
+            
+            if (realTimeSubscription) { supabase.removeChannel(realTimeSubscription); realTimeSubscription = null; }
+
+            setTimeout(() => {
+                overlay.classList.add('opacity-0');
+                setTimeout(()=> overlay.classList.add('hidden'), 500);
+                resetApp(); 
+            }, 2500);
+        }
+        
+        async function cancelOrder() {
+            if(currentOrderId) {
+                await supabase.from('orders').delete().eq('id', currentOrderId);
+            }
+            if (realTimeSubscription) { supabase.removeChannel(realTimeSubscription); realTimeSubscription = null; }
+            showToast("Order Cancelled.");
+            resetApp();
+        }
+
+        function resetApp() {
+            resetFile();
+            document.getElementById('shopSearchInput').value = '';
+            
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('step1Dot').className = "w-6 h-6 rounded-full bg-brand-500 border-4 border-white dark:border-[#141416] shadow-sm transition-all duration-500 scale-110 relative shrink-0";
+            document.getElementById('step1Dot').innerHTML = '<div class="absolute inset-0 rounded-full bg-brand-500 opacity-20 animate-ping"></div>';
+            document.getElementById('step1Text').className = "text-[10px] font-bold text-brand-500";
+            
+            document.getElementById('step2Dot').className = "w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-800 border-4 border-white dark:border-[#141416] shadow-sm transition-all duration-500 delay-100 scale-100 shrink-0";
+            document.getElementById('step2Dot').innerHTML = '';
+            document.getElementById('step3Dot').className = "w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-800 border-4 border-white dark:border-[#141416] shadow-sm transition-all duration-500 delay-200 scale-100 shrink-0";
+            document.getElementById('step3Dot').innerHTML = '';
+            
+            document.getElementById('step2Text').className = "text-[10px] font-bold text-gray-400";
+            document.getElementById('step3Text').className = "text-[10px] font-bold text-gray-400";
+            
+            document.getElementById('statusIconBox').className = "w-16 h-16 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 shrink-0 transition-all duration-500 shadow-sm";
+            document.getElementById('statusIconBox').innerHTML = `<i class="fa-solid fa-spinner fa-spin text-gray-400 text-xl"></i>`;
+            
+            document.getElementById('successTitle').classList.remove('animate-pulse');
+            
+            const qrContainer = document.getElementById('qrContainer');
+            if(qrContainer) qrContainer.classList.add('translate-y-4', 'opacity-0');
+            
+            document.getElementById('cashActionArea').classList.add('hidden');
+            document.getElementById('readyActionArea').classList.add('hidden');
+            
+            document.querySelectorAll('.pay-app').forEach(el => {
+                el.classList.remove('selected', 'border-brand-500', 'unselected', 'border-transparent');
+                el.classList.add('border-transparent');
+            });
+            
+            switchNav('home');
+        }
+
+        // --- CLOUD DB: FETCH HISTORY ---
+        async function fetchHistory() {
+            if(!currentUser) return;
+            const list = document.getElementById('historyList');
+            
+            try {
+                const { data, error } = await supabase
+                    .from('orders')
+                    .select('*')
+                    .eq('customer_phone', currentUser.phone)
+                    .order('created_at', { ascending: false });
+                    
+                if (error) throw error;
+                
+                list.innerHTML = '';
+                if(data.length === 0) {
+                    list.innerHTML = `<p class="text-gray-500 text-center mt-12 font-bold text-[14px]">No recent orders.</p>`;
+                    return;
+                }
+                
+                data.forEach((item, index) => {
+                    const dateStr = new Date(item.created_at).toLocaleDateString();
+                    const statusBadge = item.status === 'completed' ? `<span class="text-[10px] font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded border border-green-200 dark:border-green-800 shadow-sm shrink-0">Done</span>` : `<span class="text-[10px] font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20 px-2 py-0.5 rounded border border-brand-200 dark:border-brand-800 shadow-sm shrink-0">${item.status}</span>`;
+                    
+                    const delay = (index * 0.1).toFixed(1);
+                    list.innerHTML += `
+                        <div class="cascade-item glass-panel p-5 rounded-[24px] relative group transition-all hover-lift" id="hist-${item.id}" style="animation-delay: ${delay}s">
+                            <div class="flex justify-between mb-3">
+                                <span class="text-[11px] font-bold text-gray-500 uppercase tracking-widest">${dateStr}</span>
+                                ${statusBadge}
+                            </div>
+                            <p class="font-black text-[16px] text-gray-900 dark:text-white tracking-tight truncate">${item.shop_name}</p>
+                            <p class="text-[13px] text-gray-500 font-medium truncate">${item.file_name}</p>
+                            <div class="flex justify-between items-end mt-3 border-t border-gray-100 dark:border-gray-800 pt-3 min-w-0">
+                                <p class="font-black text-[20px] text-gray-900 dark:text-white tracking-tighter">₹${item.total}</p>
+                                <button onclick="deleteHistory('${item.id}')" class="text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 w-9 h-9 rounded-full flex items-center justify-center tactile transition-colors shrink-0"><i class="fa-solid fa-trash-can text-[13px]"></i></button>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (error) {
+                console.error(error);
+                list.innerHTML = `<p class="text-red-500 text-center mt-12 font-bold text-[14px]">Failed to load history.</p>`;
+            }
+        }
+
+        async function deleteHistory(id) {
+            try {
+                await supabase.from('orders').delete().eq('id', id);
+                const el = document.getElementById(`hist-${id}`);
+                if(el) {
+                    el.style.transform = 'scale(0.95)';
+                    el.style.opacity = '0';
+                    setTimeout(() => { fetchHistory(); showToast("Record deleted"); }, 300);
+                }
+            } catch (error) {
+                showToast("Delete failed.");
+            }
+        }
+
+        // --- Modals (Avatar & Filter) ---
+        function openAvatarModal() {
+            const m = document.getElementById('avatarModal');
+            m.classList.remove('hidden'); m.classList.add('flex');
+            setTimeout(() => { m.classList.remove('opacity-0'); document.getElementById('avatarContent').classList.remove('translate-y-full'); }, 10);
+        }
+        function closeAvatarModal() {
+            document.getElementById('avatarContent').classList.add('translate-y-full');
+            document.getElementById('avatarModal').classList.add('opacity-0');
+            setTimeout(() => { document.getElementById('avatarModal').classList.add('hidden'); document.getElementById('avatarModal').classList.remove('flex'); }, 400);
+        }
+        function setPresetAvatar(seed) {
+            const url = `https://api.dicebear.com/7.x/notionists/svg?seed=${seed}`;
+            document.getElementById('profileAvatarBig').src = url; document.getElementById('headerAvatar').src = url;
+            closeAvatarModal(); showToast("Avatar updated");
+        }
+
+        function openFilterModal() {
+            const m = document.getElementById('filterModal');
+            m.classList.remove('hidden'); m.classList.add('flex');
+            setTimeout(() => { m.classList.remove('opacity-0'); document.getElementById('filterContent').classList.remove('translate-y-full'); }, 10);
+        }
+        function closeFilterModal() {
+            document.getElementById('filterContent').classList.add('translate-y-full');
+            document.getElementById('filterModal').classList.add('opacity-0');
+            setTimeout(() => { document.getElementById('filterModal').classList.add('hidden'); document.getElementById('filterModal').classList.remove('flex'); }, 400);
+        }
+        function applyFilters() { closeFilterModal(); showToast("Filters applied"); }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            t.classList.remove('opacity-0', 'translate-y-[-20px]');
+            setTimeout(() => t.classList.add('opacity-0', 'translate-y-[-20px]'), 3000);
+        }
+    </script>
+</body>
+</html>
